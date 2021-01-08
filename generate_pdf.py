@@ -552,6 +552,20 @@ def format_money(value):
     return "{base}.{dec}{pad}".format(base=base, dec=decimal, pad=padding)
 
 
+def draw_unframed_list(pdf, values, padding):
+    '''
+    given a list of values, write them one after another,
+    optionally shifted right some amount
+    '''
+    pdf.set_font(pdf.config['app_config']['serif_font'], "", 10)
+    pdf.black_text()
+    for value in values:
+        if padding:
+            pdf.set_x(padding)
+        pdf.cell(0, 0, value)
+        pdf.ln(5)
+
+
 def draw_bill_to(pdf):
     '''
     display email, company name and address of entity being billed
@@ -559,20 +573,26 @@ def draw_bill_to(pdf):
     so that e.g. 'country' need not be displayed if the biller is
     in the same country
     '''
+    pdf.ln(20)
     pdf.black_text()
-    pdf.ln(10)
-    pdf.ln(10)
-
     pdf.cell(0, 0, "To: ")
-
     fields = ['email', 'name', 'street', 'city_state_zip', 'country']
-    last_field = fields[-1]
-    for field in fields:
-        if field in pdf.config['bill_to']:
-            pdf.set_x(20)
-            pdf.cell(0, 0, pdf.config['bill_to'][field])
-            if field != last_field:
-                pdf.ln(5)
+    values = [pdf.config['bill_to'][field] for field in fields
+              if field in pdf.config['bill_to']]
+    draw_unframed_list(pdf, values, 20)
+
+
+def draw_work_table(pdf):
+    '''
+    itemized description of work done during the month
+    '''
+    pdf.ln(20)
+    pdf.set_font(pdf.config['app_config']['serif_font'], "B", 12)
+    pdf.black_text()
+    pdf.cell(40, 0, "Work Details")
+    pdf.ln(7)
+    values = [item['work'] for item in pdf.config['work_done']]
+    draw_unframed_list(pdf, values, 0)
 
 
 def draw_filled_table(pdf, table_config, headers, content_keys, widths=None, align="R"):
@@ -728,24 +748,6 @@ def draw_totals_taxes_table(pdf):
 
     total = subtotal + tax
     draw_total(pdf, total, widths)
-
-
-def draw_work_table(pdf):
-    '''
-    itemized description of work done during the month
-    '''
-    pdf.ln(20)
-    pdf.set_font(pdf.config['app_config']['serif_font'], "B", 12)
-    pdf.black_text()
-
-    pdf.cell(40, 0, "Work Details")
-
-    pdf.ln(5)
-    pdf.set_font(pdf.config['app_config']['serif_font'], "", 10)
-
-    for item in pdf.config['work_done']:
-        pdf.cell(125, 5, item['work'])
-        pdf.ln(5)
 
 
 def render_pdf(config):
