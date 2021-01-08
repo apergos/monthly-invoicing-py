@@ -71,6 +71,38 @@ class PDF(FPDF):
         '''
         self.set_text_color(255, 255, 255)
 
+    def content_cell(self, width, height, text):
+        '''
+        write a filled framed cell with right aligned text
+        which is what we want for most content cells in the
+        invoice tables
+        '''
+        self.cell(width, height, text, border=1, align="R", fill=True)
+
+    def content_cell_left(self, width, height, text):
+        '''
+        write a filled framed cell with left aligned text
+        which a few content cells need
+        '''
+        self.cell(width, height, text, border=1, fill=True)
+
+    def header_cell(self, width, height, text):
+        '''
+        write a filled framed cell with centered text
+        which is what we want for most header cells in the
+        invoice tables
+        '''
+        self.cell(width, height, text, border=1, align="C", fill=True)
+
+    def blank_cell(self, width, height):
+        '''
+        write a transparent borderless cell with no text, which is the
+        default for all the args except of course for the empty
+        text string
+        '''
+        # self.cell(width, height, "", align="C", fill=True)
+        self.cell(width, height, "")
+
     def get_invoice_date(self):
         '''
         from the bill date, figure out the invoice date, which is
@@ -536,7 +568,7 @@ def draw_bill_table(pdf):
     fields = ["Department", "Currency", "Payment Terms", "Due Date"]
     for field in fields:
         width = len(field) * 4.9
-        pdf.cell(width, 5, field, 1, 0, "C", True, "")
+        pdf.header_cell(width, 5, field)
 
     pdf.ln(5)
     pdf.set_fill_color(255, 255, 255)
@@ -546,7 +578,7 @@ def draw_bill_table(pdf):
     for idx, name in enumerate(pdf.config['bill']):
         value = pdf.config['bill'][name]
         width = len(fields[idx]) * 4.9
-        pdf.cell(width, 4, value, 1, 0, "L", True, "")
+        pdf.content_cell_left(width, 4, value)
 
 
 def draw_blanks(pdf, widths):
@@ -558,7 +590,7 @@ def draw_blanks(pdf, widths):
     # we had, the rightmost two will be filled, blank the rest
     empty = len(pdf.config['billables'][0]) - 2
     for i in range(0, empty):
-        pdf.cell(widths[i], 4, "", "", 0, "C", True, "")
+        pdf.blank_cell(widths[i], 4)
 
 
 def get_tax(pdf, subtotal):
@@ -579,8 +611,8 @@ def draw_tax(pdf, tax, widths):
     pdf.ln(4)
     draw_blanks(pdf, widths)
     tax_text = pdf.config['currency_marker'] + " " + format_money(tax)
-    pdf.cell(widths[len(widths)-2], 4, tax_name, 1, 0, "R", True, "")
-    pdf.cell(widths[len(widths)-1], 4, tax_text, 1, 0, "R", True, "")
+    pdf.content_cell(widths[len(widths)-2], 4, tax_name)
+    pdf.content_cell(widths[len(widths)-1], 4, tax_text)
 
 
 def draw_total(pdf, total, widths):
@@ -595,8 +627,8 @@ def draw_total(pdf, total, widths):
 
     # write the currency marker plus total
     total_text = pdf.config['currency_marker'] + ' ' + format_money(total)
-    pdf.cell(widths[len(widths)-2], 6, "Total", 1, 0, "R", True, "")
-    pdf.cell(widths[len(widths)-1], 6, total_text, 1, 0, "R", True, "")
+    pdf.content_cell(widths[len(widths)-2], 6, "Total")
+    pdf.content_cell(widths[len(widths)-1], 6, total_text)
 
     # place a dividing line just above the total entry
     x2_pos = pdf.get_x()
@@ -619,10 +651,9 @@ def draw_billables_table(pdf):
 
     fields = ["Week of:", "Hours/Week", "Rate", "Line Total"]
     widths = [116.5, 25, 25, 25]
-
     # display field names (week, hours, rate, line total))
     for idx, field in enumerate(fields):
-        pdf.cell(widths[idx], 5, field, 1, 0, "C", True, "")
+        pdf.header_cell(widths[idx], 5, field)
 
     pdf.ln(5)
     pdf.set_fill_color(255, 255, 255)
@@ -643,7 +674,7 @@ def draw_billables_table(pdf):
         billable['cost'] = pdf.config['currency_marker'] + ' ' + format_money(cost)
 
         for idx, name in enumerate(names):
-            pdf.cell(widths[idx], 4, billable[name], 1, 0, "R", True, "")
+            pdf.content_cell(widths[idx], 4, billable[name])
 
         subtotal = subtotal + cost
         pdf.ln(4)
@@ -655,8 +686,8 @@ def draw_billables_table(pdf):
     draw_blanks(pdf, widths)
 
     subtotal_text = pdf.config['currency_marker'] + ' ' + format_money(subtotal)
-    pdf.cell(widths[len(widths)-2], 4, "Subtotal", 1, 0, "R", True, "")
-    pdf.cell(widths[len(widths)-1], 4, subtotal_text, 1, 0, "R", True, "")
+    pdf.content_cell(widths[len(widths)-2], 4, "Subtotal")
+    pdf.content_cell(widths[len(widths)-1], 4, subtotal_text)
 
     tax = get_tax(pdf, subtotal)
     draw_tax(pdf, tax, widths)
@@ -679,8 +710,8 @@ def draw_work_table(pdf):
     pdf.set_font(pdf.config['app_config']['serif_font'], "", 10)
 
     for item in pdf.config['work_done']:
-        pdf.cell(125, 5, item['work'], "", 1, "L", False, "")
-    pdf.ln(4)
+        pdf.cell(125, 5, item['work'])
+        pdf.ln(5)
 
 
 def render_pdf(config):
