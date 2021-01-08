@@ -267,26 +267,30 @@ def get_week_info(year, month, off):
 def not_weekend(day, month, year):
     '''return True if the day is not a Sat/Sun, False otherwise'''
     weekday = datetime.date(year, month, day).weekday()
-    # print(weekday, month, day, year)
     if weekday in [5, 6]:
         return False
     return True
 
 
-def fillin_billable(week_info, rate, month):
+def fillin_billable(week_info, rate, month, currency_marker):
     '''
     given week start and end and hours, the billing rate and the month,
     put together a basic billable item and return it
     '''
     billable = {}
-    billable['rate'] = str(rate)
-    billable['hours'] = str(week_info[3])
     billable['description'] = 'Week of {month} {start} - {end}'.format(
         month=calendar.month_name[month], start=week_info[0], end=week_info[1])
+    billable['rate'] = str(rate)
+    billable['hours'] = str(week_info[3])
+    # printable format for the rate
+    billable['rate'] = currency_marker + ' ' + billable['rate']
+    # add the line item cost
+    cost = convert_money(billable['rate']) * int(billable['hours'])
+    billable['cost'] = currency_marker + ' ' + format_money(cost)
     return billable
 
 
-def get_billables(values, billdate):
+def get_billables(values, billdate, currency_marker):
     '''
     given a set of values for an invoice, and a billdate,
     generate a dict of billables from these values
@@ -302,9 +306,19 @@ def get_billables(values, billdate):
     off = [day for day in off if not_weekend(day, month, year)]
     weeks = get_week_info(year, month, off)
     billables = {'billables':
-                 [fillin_billable(week, values[billdate]['rate'], month)
+                 [fillin_billable(week, values[billdate]['rate'], month, currency_marker)
                   for week in weeks if week[3] > 0]}
     return billables
+
+
+def get_currency_marker(config):
+    '''
+    we may have an incompete config with values yet to be filled in
+    but get the currency marker or its default and return it
+    '''
+    if 'currency_marker' not in config:
+        return '$'
+    return config['currency_marker']
 
 
 def get_yaml_config(template, valuesfile):
@@ -322,17 +336,26 @@ def get_yaml_config(template, valuesfile):
 
     config = []
 
+    # fake fill in the template so we can get the currency marker
+    # from the template; we need it to format the rates and costs
+    # in each billable item
+    fake_completed_text = text % {
+        "BILLDATE": "JUNK",
+        "WORK": "",
+        "BILLABLES": ""
+        }
+    currency_marker = get_currency_marker(yaml.safe_load(fake_completed_text))
+
     for billdate in values:
         work = {'work_done': values[billdate]['work_done']}
 
-        billables = get_billables(values, billdate)
+        billables = get_billables(values, billdate, currency_marker)
 
         completed_text = text % {
             "BILLDATE": billdate,
             "WORK": yaml.dump(work),
             "BILLABLES": yaml.dump(billables)
         }
-
         config.append(yaml.safe_load(completed_text))
 
     return config
@@ -464,6 +487,7 @@ def validate_config(config):
 
 def add_config_defaults(config):
     '''add some defaults where we can'''
+    config['currency_marker'] = get_currency_marker(config)
     if 'currency_marker' not in config:
         config['currency_marker'] = '$'
 
@@ -551,10 +575,21 @@ def draw_bill_to(pdf):
                 pdf.ln(5)
 
 
-def draw_bill_table(pdf):
+def draw_filled_table(pdf, table_config, headers, content_keys, widths=None, align="R"):
     '''
-    display two line table with department, currency, terms
-    and due date
+    draw a standard bordered table with headers centered and a different cell
+    color than the content
+
+    args:
+      pfd: PDF object
+      table_config: list of dicts with content field names and content
+      headers: list of headers to go in the header row of the table
+      content_keys: list of keys from the content dicts, one key per header;
+              this is used so we know which content elements correspond
+              to which headers and in which order
+      widths: list of widths of the cells in a row; if not supplied, the
+              width of the header field plus a multiplier will be used
+      align: right align the text (default) or some other alignment (e.g. "L")
     '''
     pdf.white_text()
     pdf.set_draw_color(64, 64, 64)
@@ -565,20 +600,43 @@ def draw_bill_table(pdf):
     base_y = pdf.get_y() + 10
     pdf.set_y(base_y)
 
-    fields = ["Department", "Currency", "Payment Terms", "Due Date"]
-    for field in fields:
-        width = len(field) * 4.9
-        pdf.header_cell(width, 5, field)
+    # put the headers
+    for idx, header in enumerate(headers):
+        if widths:
+            width = widths[idx]
+        else:
+            width = len(header) * 4.9
+        pdf.header_cell(width, 5, header)
 
     pdf.ln(5)
     pdf.set_fill_color(255, 255, 255)
     pdf.black_text()
     pdf.set_font(pdf.config['app_config']['serif_font'], "", 8)
 
-    for idx, name in enumerate(pdf.config['bill']):
-        value = pdf.config['bill'][name]
-        width = len(fields[idx]) * 4.9
-        pdf.content_cell_left(width, 4, value)
+    # put the content
+    for row in table_config:
+        for idx, name in enumerate(content_keys):
+            value = row[name]
+            if widths:
+                width = widths[idx]
+            else:
+                width = len(headers[idx]) * 4.9
+            if align == "L":
+                pdf.content_cell_left(width, 4, value)
+            else:
+                pdf.content_cell(width, 4, value)
+        pdf.ln(4)
+
+
+def draw_bill_table(pdf):
+    '''
+    display two line table with department, currency, terms
+    and due date
+    '''
+    headers = ["Department", "Currency", "Payment Terms", "Due Date"]
+    table_config = [pdf.config['bill']]
+    content_keys = ['department', 'currency', 'payment_terms', 'due_date']
+    draw_filled_table(pdf, table_config, headers, content_keys, align="L")
 
 
 def draw_blanks(pdf, widths):
@@ -638,47 +696,23 @@ def draw_total(pdf, total, widths):
 
 def draw_billables_table(pdf):
     '''
-    display the billable items, subtotal, tax and grand total
+    display the billable items
     '''
-    pdf.set_fill_color(255, 0, 0)
-    pdf.white_text()
-    pdf.set_draw_color(64, 64, 64)
-    pdf.light_fill_color()
-    pdf.set_line_width(0.3)
-    pdf.set_font(pdf.config['app_config']['serif_font'], "B", 10)
-    base_y = pdf.get_y() + 10
-    pdf.set_y(base_y)
-
-    fields = ["Week of:", "Hours/Week", "Rate", "Line Total"]
+    headers = ["Week of:", "Hours/Week", "Rate", "Line Total"]
     widths = [116.5, 25, 25, 25]
-    # display field names (week, hours, rate, line total))
-    for idx, field in enumerate(fields):
-        pdf.header_cell(widths[idx], 5, field)
+    table_config = pdf.config['billables']
+    content_keys = ["description", "hours", "rate", "cost"]
+    draw_filled_table(pdf, table_config, headers, content_keys, widths)
 
-    pdf.ln(5)
-    pdf.set_fill_color(255, 255, 255)
-    pdf.black_text()
-    pdf.set_font(pdf.config['app_config']['serif_font'], "", 8)
 
+def draw_totals_taxes_table(pdf):
+    '''
+    display the subtotal, the tax, and the final total
+    '''
+    widths = [116.5, 25, 25, 25]
     subtotal = 0
-
-    # display the values for each field for each billed item
-    # and also accumulate the running total of all billed items
-    names = ["description", "hours", "rate", "cost"]
-
     for billable in pdf.config['billables']:
-        # printable format for the rate
-        billable['rate'] = pdf.config['currency_marker'] + ' ' + billable['rate']
-        # add the line item cost
-        cost = convert_money(billable['rate']) * int(billable['hours'])
-        billable['cost'] = pdf.config['currency_marker'] + ' ' + format_money(cost)
-
-        for idx, name in enumerate(names):
-            pdf.content_cell(widths[idx], 4, billable[name])
-
-        subtotal = subtotal + cost
-        pdf.ln(4)
-
+        subtotal = subtotal + convert_money(billable['cost'])
     # display accumulated subtotal
     pdf.set_draw_color(255, 255, 255)
     pdf.set_font(pdf.config['app_config']['serif_font'], "", 8)
@@ -729,6 +763,7 @@ def render_pdf(config):
     draw_work_table(pdf)
 
     draw_billables_table(pdf)
+    draw_totals_taxes_table(pdf)
 
     outfile_name = os.path.join(
         pdf.config['app_config']['output_dir'],
