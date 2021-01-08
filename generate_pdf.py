@@ -71,6 +71,18 @@ class PDF(FPDF):
         '''
         self.set_text_color(255, 255, 255)
 
+    def serif(self, fontsize):
+        '''
+        set the font to plain serif of the specified size
+        '''
+        self.set_font(self.config['app_config']['serif_font'], "", fontsize)
+
+    def bold_serif(self, fontsize):
+        '''
+        set the font to bold serif of the specified size
+        '''
+        self.set_font(self.config['app_config']['serif_font'], "B", fontsize)
+
     def content_cell(self, width, height, text):
         '''
         write a filled framed cell with right aligned text
@@ -143,7 +155,7 @@ class PDF(FPDF):
         # "Date"
         self.set_xy(140, 40)
         self.dark_text()
-        self.set_font(self.config['app_config']['serif_font'], "", 12)
+        self.serif(12)
         self.cell(20, 0, "Date:")
         self.light_text()
         self.cell(20, 0, self.get_invoice_date())
@@ -158,10 +170,10 @@ class PDF(FPDF):
         # Biller Name
         self.set_xy(8, 40)
         self.dark_text()
-        self.set_font(self.config['app_config']['serif_font'], "B", 14)
+        self.bold_serif(14)
         self.cell(40, 0, self.config['business']['person'])
         # Biller Address
-        self.set_font(self.config['app_config']['serif_font'], "", 10)
+        self.serif(10)
         self.set_xy(8, 45)
         self.cell(40, 0, self.config['business']['address'])
 
@@ -557,7 +569,7 @@ def draw_unframed_list(pdf, values, padding):
     given a list of values, write them one after another,
     optionally shifted right some amount
     '''
-    pdf.set_font(pdf.config['app_config']['serif_font'], "", 10)
+    pdf.serif(10)
     pdf.black_text()
     for value in values:
         if padding:
@@ -587,7 +599,7 @@ def draw_work_table(pdf):
     itemized description of work done during the month
     '''
     pdf.ln(20)
-    pdf.set_font(pdf.config['app_config']['serif_font'], "B", 12)
+    pdf.bold_serif(12)
     pdf.black_text()
     pdf.cell(40, 0, "Work Details")
     pdf.ln(7)
@@ -615,7 +627,7 @@ def draw_filled_table(pdf, table_config, headers, content_keys, widths=None, ali
     pdf.set_draw_color(64, 64, 64)
     pdf.light_fill_color()
     pdf.set_line_width(0.3)
-    pdf.set_font(pdf.config['app_config']['serif_font'], "B", 10)
+    pdf.bold_serif(10)
 
     base_y = pdf.get_y() + 10
     pdf.set_y(base_y)
@@ -631,7 +643,7 @@ def draw_filled_table(pdf, table_config, headers, content_keys, widths=None, ali
     pdf.ln(5)
     pdf.set_fill_color(255, 255, 255)
     pdf.black_text()
-    pdf.set_font(pdf.config['app_config']['serif_font'], "", 8)
+    pdf.serif(8)
 
     # put the content
     for row in table_config:
@@ -699,7 +711,7 @@ def draw_total(pdf, total, widths):
     '''
     pdf.ln(4)
     draw_blanks(pdf, widths)
-    pdf.set_font(pdf.config['app_config']['serif_font'], "B", 10)
+    pdf.bold_serif(10)
     y_pos = pdf.get_y()
     x_pos = pdf.get_x()
 
@@ -735,7 +747,7 @@ def draw_totals_taxes_table(pdf):
         subtotal = subtotal + convert_money(billable['cost'])
     # display accumulated subtotal
     pdf.set_draw_color(255, 255, 255)
-    pdf.set_font(pdf.config['app_config']['serif_font'], "", 8)
+    pdf.serif(8)
     pdf.ln(2)
     draw_blanks(pdf, widths)
 
