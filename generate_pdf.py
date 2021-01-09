@@ -24,6 +24,30 @@ class PDF(FPDF):
         super().__init__()
         self.add_font('DejaVu', '', '/usr/share/fonts/dejavu/DejaVuSerif.ttf', uni=True)
         self.add_font('DejaVu', 'B', '/usr/share/fonts/dejavu/DejaVuSerif-Bold.ttf', uni=True)
+        self.add_fonts_from_config()
+
+    def add_fonts_from_config(self):
+        '''
+        we are doing unicode fonts now. explicitly add them if specified
+        in the template
+        '''
+        if 'sans_font' in self.config['app_config']:
+            if 'sans_font_path' in self.config['app_config']:
+                self.add_font(self.config['app_config']['sans_font'], '',
+                              self.config['app_config']['sans_font_path'], uni=True)
+            if 'sans_font_bold_path' in self.config['app_config']:
+                self.add_font(self.config['app_config']['sans_font'], 'B',
+                              self.config['app_config']['sans_font_bold_path'], uni=True)
+            if 'sans_font_bolditalic_path' in self.config['app_config']:
+                self.add_font(self.config['app_config']['sans_font'], 'BI',
+                              self.config['app_config']['sans_fontitalic_bold_path'], uni=True)
+        if 'serif_font' in self.config['app_config']:
+            if 'serif_font_path' in self.config['app_config']:
+                self.add_font(self.config['app_config']['serif_font'], '',
+                              self.config['app_config']['serif_font_path'], uni=True)
+            if 'serif_font_bold_path' in self.config['app_config']:
+                self.add_font(self.config['app_config']['serif_font'], 'B',
+                              self.config['app_config']['serif_font_bold_path'], uni=True)
 
     def dark_text(self):
         '''

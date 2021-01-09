@@ -39,8 +39,8 @@ The script is a loose port of https://github.com/relistan/billmonger to python, 
  * Change the currency marker ($, € etc) by changing the value for "currency_marker"
  * Change the currency name by changing the value for "currency"
  * Change the path to the logo by changing the value for "image_file"
- * Change the sans font by changing the value for "sans_font"
- * Change the serif font by changing the value for "serif_font" AND adding the corresponding entries for the font to __init__() in generate_pdf.py
+ * Change the sans fonts by changing the values for "sans_font" and so on; you may need to change cell sizes/spacing in the script!
+ * Change the serif fonts by changing the values for "serif_font" and so on; you may need to change cell sizes/spacing in the script!
 
 ## Assumptions made
  * Work days are Monday through Friday
