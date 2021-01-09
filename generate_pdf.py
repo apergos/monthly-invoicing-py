@@ -25,6 +25,7 @@ class PDF(FPDF):
         self.add_font('DejaVu', '', '/usr/share/fonts/dejavu/DejaVuSerif.ttf', uni=True)
         self.add_font('DejaVu', 'B', '/usr/share/fonts/dejavu/DejaVuSerif-Bold.ttf', uni=True)
         self.add_fonts_from_config()
+        self.left_margin = 8
 
     def add_fonts_from_config(self):
         '''
@@ -197,20 +198,19 @@ class PDF(FPDF):
 
         # Left side
         self.dark_text()
-        left_x = 8
         # Biller Name
         self.bold_serif(14)
-        self.set_xy(left_x, 40)
+        self.set_xy(self.left_margin, 40)
         self.cell(40, 0, self.config['business']['person'])
         # Biller Address
         self.serif(9)
-        self.set_xy(left_x, 45)
+        self.set_xy(self.left_margin, 45)
         self.cell(40, 0, self.config['business']['address'])
 
         # Divider line
         self.ln(10)
         self.dark_draw_color()
-        self.line(left_x, 50, 200, 50)
+        self.line(self.left_margin, 50, 200, 50)
 
     def footer(self):
         '''
@@ -221,14 +221,14 @@ class PDF(FPDF):
         # Divider line
         self.ln(10)
         self.dark_draw_color()
-        self.line(8, 275, 200, 275)
+        self.line(self.left_margin, 275, 200, 275)
 
         # Text
         self.bold_serif(10)
 
         # Left side
         # company name
-        self.set_xy(8.0, 280)
+        self.set_xy(self.left_margin, 280)
         self.dark_text()
         self.cell(127, 0, self.config['business']['name'])
 
@@ -599,17 +599,57 @@ def format_money(value):
     return "{base}.{dec}{pad}".format(base=base, dec=decimal, pad=padding)
 
 
-def draw_unframed_list(pdf, values, padding):
+def draw_unframed_list(pdf, header, values, left_cols, rect=False):
     '''
     given a list of values, write them one after another,
-    optionally shifted right some amount
+    optionally shifted right by "left_cols" amount of mm
+
+    a header will be drawn above the list if specified
+
+    a rectangle will be drawn around optional header and list,
+    if specified; if left_cols is specified then the rectangle will
+    include that blank area to the left; this can be used to
+    draw multiple such columns with multiple calls to this method,
+    drawing a final rectangle around them all
     '''
+    xpos = pdf.left_margin + 2
+    ypos = None
+
+    # header if any
+    if header:
+        pdf.bold_serif(12)
+        # point size stuff is to add some space below top of rectangle
+        ypos = pdf.get_y() - int(pdf.font_size_pt * 0.7)
+        pdf.black_text()
+        pdf.cell(40, 0, " " + header)
+        pdf.ln(7)
+
+    # list
     pdf.serif(10)
     pdf.black_text()
+
+    # no header was printed so we must get ypos now
+    if ypos is None:
+        # point size stuff is to add some space below top of rectangle
+        ypos = pdf.get_y() - int(pdf.font_size_pt * 0.7)
+
+    max_width = 0
     for value in values:
-        if padding:
-            pdf.set_x(padding)
+        # give a bit of space between rectangle and text
+        value = " " + value + " "
+        if left_cols:
+            pdf.set_x(left_cols)
+        new_width = left_cols + pdf.get_string_width(value) + int(pdf.font_size_pt * 0.4)
+        if new_width > max_width:
+            max_width = new_width
         pdf.cell(0, 0, value)
+        pdf.ln(5)
+
+    # point size stuff is to add some space before bottom of rectangle
+    ypos_new = pdf.get_y() + int(pdf.font_size_pt * 0.4)
+
+    if rect:
+        pdf.rect(xpos, ypos, max_width, ypos_new - ypos)
         pdf.ln(5)
 
 
@@ -621,12 +661,18 @@ def draw_bill_to(pdf):
     in the same country
     '''
     pdf.ln(20)
-    pdf.black_text()
-    pdf.cell(0, 0, "To: ")
+
+    # one column
+    ypos = pdf.get_y()
+    values = ['To:']
+    draw_unframed_list(pdf, None, values, 0, False)
+    pdf.set_y(ypos)
+
+    # the next column, plus border around both
     fields = ['email', 'name', 'street', 'city_state_zip', 'country']
     values = [pdf.config['bill_to'][field] for field in fields
               if field in pdf.config['bill_to']]
-    draw_unframed_list(pdf, values, 20)
+    draw_unframed_list(pdf, None, values, 20, True)
 
 
 def draw_work_table(pdf):
@@ -634,12 +680,9 @@ def draw_work_table(pdf):
     itemized description of work done during the month
     '''
     pdf.ln(20)
-    pdf.bold_serif(12)
-    pdf.black_text()
-    pdf.cell(40, 0, "Work Details")
-    pdf.ln(7)
+
     values = [item['work'] for item in pdf.config['work_done']]
-    draw_unframed_list(pdf, values, 0)
+    draw_unframed_list(pdf, "Work Details", values, 0, False)
 
 
 def draw_filled_table(pdf, table_content, table_info, widths=None, align="R"):
@@ -732,14 +775,16 @@ def get_tax(pdf, subtotal):
 
 def draw_tax(pdf, tax, widths):
     '''display tax (or whatever it might be called in the config)'''
+    pdf.ln(4)
+    draw_blanks(pdf, widths)
+
     tax_name = "Tax"
     if ('tax_details' in pdf.config and 'tax_name' in pdf.config['tax_details'] and
             pdf.config['tax_details']['tax_name']):
         tax_name = pdf.config['tax_details']['tax_name']
 
-    pdf.ln(4)
-    draw_blanks(pdf, widths)
     tax_text = pdf.config['currency_marker'] + " " + format_money(tax)
+
     pdf.content_cell(widths[len(widths)-2], 4, tax_name)
     pdf.content_cell(widths[len(widths)-1], 4, tax_text)
 
@@ -750,9 +795,10 @@ def draw_total(pdf, total, widths):
     '''
     pdf.ln(4)
     draw_blanks(pdf, widths)
+
     pdf.bold_serif(10)
     y_pos = pdf.get_y()
-    x_pos = pdf.get_x()
+    x_line_start = pdf.get_x()
 
     # write the currency marker plus total
     total_text = pdf.config['currency_marker'] + ' ' + format_money(total)
@@ -760,9 +806,9 @@ def draw_total(pdf, total, widths):
     pdf.content_cell(widths[len(widths)-1], 6, total_text)
 
     # place a dividing line just above the total entry
-    x2_pos = pdf.get_x()
+    x_line_end = pdf.get_x()
     pdf.set_draw_color(64, 64, 64)
-    pdf.line(x_pos, y_pos, x2_pos, y_pos)
+    pdf.line(x_line_start, y_pos, x_line_end, y_pos)
 
 
 def draw_billables_table(pdf):
