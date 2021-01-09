@@ -723,7 +723,7 @@ def draw_filled_table(pdf, table_content, table_info, widths=None, align="R"):
             width = widths[idx]
         else:
             width = len(header) * 4.9
-        pdf.header_cell(width, 5, header)
+        pdf.header_cell(width, int(pdf.font_size_pt / 2), header)
 
     pdf.ln(5)
     pdf.set_fill_color(255, 255, 255)
@@ -739,9 +739,9 @@ def draw_filled_table(pdf, table_content, table_info, widths=None, align="R"):
             else:
                 width = len(table_info['headers'][idx]) * 4.9
             if align == "L":
-                pdf.content_cell_left(width, 4, value)
+                pdf.content_cell_left(width, int(pdf.font_size_pt / 2), value)
             else:
-                pdf.content_cell(width, 4, value)
+                pdf.content_cell(width, int(pdf.font_size_pt / 2), value)
         pdf.ln(4)
 
 
@@ -766,7 +766,7 @@ def draw_blanks(pdf, widths):
     # we had, the rightmost two will be filled, blank the rest
     empty = len(pdf.config['billables'][0]) - 2
     for i in range(0, empty):
-        pdf.blank_cell(widths[i], 4)
+        pdf.blank_cell(widths[i], int(pdf.font_size_pt / 2))
 
 
 def get_tax(pdf, subtotal):
@@ -789,8 +789,8 @@ def draw_tax(pdf, tax, widths):
 
     tax_text = pdf.config['currency_marker'] + " " + format_money(tax)
 
-    pdf.content_cell(widths[len(widths)-2], 4, tax_name)
-    pdf.content_cell(widths[len(widths)-1], 4, tax_text)
+    pdf.content_cell(widths[len(widths)-2], int(pdf.font_size_pt / 2), tax_name)
+    pdf.content_cell(widths[len(widths)-1], int(pdf.font_size_pt / 2), tax_text)
 
 
 def draw_total(pdf, total, widths):
@@ -806,8 +806,8 @@ def draw_total(pdf, total, widths):
 
     # write the currency marker plus total
     total_text = pdf.config['currency_marker'] + ' ' + format_money(total)
-    pdf.content_cell(widths[len(widths)-2], 6, "Total")
-    pdf.content_cell(widths[len(widths)-1], 6, total_text)
+    pdf.content_cell(widths[len(widths)-2], int(pdf.font_size_pt / 2), "Total")
+    pdf.content_cell(widths[len(widths)-1], int(pdf.font_size_pt / 2), total_text)
 
     # place a dividing line just above the total entry
     x_line_end = pdf.get_x()
@@ -840,8 +840,8 @@ def draw_totals_taxes_table(pdf):
     draw_blanks(pdf, BILLABLE_WIDTHS)
 
     subtotal_text = pdf.config['currency_marker'] + ' ' + format_money(subtotal)
-    pdf.content_cell(BILLABLE_WIDTHS[len(BILLABLE_WIDTHS)-2], 4, "Subtotal")
-    pdf.content_cell(BILLABLE_WIDTHS[len(BILLABLE_WIDTHS)-1], 4, subtotal_text)
+    pdf.content_cell(BILLABLE_WIDTHS[len(BILLABLE_WIDTHS)-2], int(pdf.font_size_pt / 2), "Subtotal")
+    pdf.content_cell(BILLABLE_WIDTHS[len(BILLABLE_WIDTHS)-1], int(pdf.font_size_pt / 2), subtotal_text)
 
     tax = get_tax(pdf, subtotal)
     draw_tax(pdf, tax, BILLABLE_WIDTHS)
