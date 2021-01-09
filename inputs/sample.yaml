@@ -2,6 +2,6 @@
   off_days: [15, 17, 28]
   rate: "42.25"
   work_done:
-    - work: "invoice generator"
-    - work: "political reporting"
-    - work: "kitty grooming"
+    - work: "• invoice generator"
+    - work: "• political reporting"
+    - work: "• kitty grooming"

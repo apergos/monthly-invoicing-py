@@ -22,6 +22,8 @@ class PDF(FPDF):
     def __init__(self, config):
         self.config = config
         super().__init__()
+        self.add_font('DejaVu', '', '/usr/share/fonts/dejavu/DejaVuSerif.ttf', uni=True)
+        self.add_font('DejaVu', 'B', '/usr/share/fonts/dejavu/DejaVuSerif-Bold.ttf', uni=True)
 
     def dark_text(self):
         '''
@@ -148,21 +150,22 @@ class PDF(FPDF):
 
         # Right side
         # "Invoice"
+        right_x = 140
         self.set_font(self.config['app_config']['sans_font'], "BI", 28)
-        self.set_xy(140, 30)
+        self.set_xy(right_x, 30)
         self.dark_text()
         self.cell(40, 0, "Invoice")
 
         # Rest of right side
-        self.serif(12)
+        self.serif(10)
         # "Date"
-        self.set_xy(140, 40)
+        self.set_xy(right_x, 40)
         self.dark_text()
         self.cell(20, 0, "Date:")
         self.light_text()
         self.cell(20, 0, self.get_invoice_date())
         # "Invoice Number"
-        self.set_xy(140, 45)
+        self.set_xy(right_x, 45)
         self.dark_text()
         self.cell(20, 0, "Invoice #:")
         self.light_text()
@@ -170,19 +173,20 @@ class PDF(FPDF):
 
         # Left side
         self.dark_text()
+        left_x = 8
         # Biller Name
         self.bold_serif(14)
-        self.set_xy(8, 40)
+        self.set_xy(left_x, 40)
         self.cell(40, 0, self.config['business']['person'])
         # Biller Address
-        self.serif(10)
-        self.set_xy(8, 45)
+        self.serif(9)
+        self.set_xy(left_x, 45)
         self.cell(40, 0, self.config['business']['address'])
 
         # Divider line
         self.ln(10)
         self.dark_draw_color()
-        self.line(8, 50, 200, 50)
+        self.line(left_x, 50, 200, 50)
 
     def footer(self):
         '''
@@ -202,7 +206,7 @@ class PDF(FPDF):
         # company name
         self.set_xy(8.0, 280)
         self.dark_text()
-        self.cell(143, 0, self.config['business']['name'])
+        self.cell(127, 0, self.config['business']['name'])
 
         # Right side
         # invoice generation date
@@ -523,7 +527,8 @@ def add_config_defaults(config):
     if 'sans_font' not in config['app_config']:
         config['app_config']['sans_font'] = "Helvetica"
     if 'serif_font' not in config['app_config']:
-        config['app_config']['serif_font'] = "Times"
+        # config['app_config']['serif_font'] = "Times"
+        config['app_config']['serif_font'] = "DejaVu"
 
     if 'colors' not in config:
         config['colors'] = {}

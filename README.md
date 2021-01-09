@@ -16,6 +16,7 @@ The script is a loose port of https://github.com/relistan/billmonger to python, 
    python3 generate_pdf.py -v inputs/sample.yaml -t templates/example.tmpl
 ```
   * Check the pdf invoice in the "billed" subdirectory.
+  * If you have font issues, check the paths of DejaVuSerif.ttf and DejaVuSerif-Bold.ttf and edit generate_pdf.py to update them
 
 ## Installation
  * Put the script somewhere within your path
@@ -38,6 +39,8 @@ The script is a loose port of https://github.com/relistan/billmonger to python, 
  * Change the currency marker ($, € etc) by changing the value for "currency_marker"
  * Change the currency name by changing the value for "currency"
  * Change the path to the logo by changing the value for "image_file"
+ * Change the sans font by changing the value for "sans_font"
+ * Change the serif font by changing the value for "serif_font" AND adding the corresponding entries for the font to __init__() in generate_pdf.py
 
 ## Assumptions made
  * Work days are Monday through Friday
