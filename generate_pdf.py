@@ -13,6 +13,9 @@ import yaml
 from fpdf import FPDF
 
 
+BILLABLE_WIDTHS = [116.5, 25, 25, 25]
+
+
 class PDF(FPDF):
     '''
     subclass with invoice header, footer
@@ -26,6 +29,7 @@ class PDF(FPDF):
         self.add_font('DejaVu', 'B', '/usr/share/fonts/dejavu/DejaVuSerif-Bold.ttf', uni=True)
         self.add_fonts_from_config()
         self.left_margin = 8
+        self.divider_length = 200
 
     def add_fonts_from_config(self):
         '''
@@ -210,7 +214,7 @@ class PDF(FPDF):
         # Divider line
         self.ln(10)
         self.dark_draw_color()
-        self.line(self.left_margin, 50, 200, 50)
+        self.line(self.left_margin, 50, self.divider_length, 50)
 
     def footer(self):
         '''
@@ -221,7 +225,7 @@ class PDF(FPDF):
         # Divider line
         self.ln(10)
         self.dark_draw_color()
-        self.line(self.left_margin, 275, 200, 275)
+        self.line(self.left_margin, 275, self.divider_length, 275)
 
         # Text
         self.bold_serif(10)
@@ -818,16 +822,14 @@ def draw_billables_table(pdf):
     headers = ["Week of:", "Hours/Week", "Rate", "Line Total"]
     content_keys = ["description", "hours", "rate", "cost"]
     table_info = {'headers': headers, 'content_keys': content_keys}
-    widths = [116.5, 25, 25, 25]
     table_content = pdf.config['billables']
-    draw_filled_table(pdf, table_content, table_info, widths)
+    draw_filled_table(pdf, table_content, table_info, BILLABLE_WIDTHS)
 
 
 def draw_totals_taxes_table(pdf):
     '''
     display the subtotal, the tax, and the final total
     '''
-    widths = [116.5, 25, 25, 25]
     subtotal = 0
     for billable in pdf.config['billables']:
         subtotal = subtotal + convert_money(billable['cost'])
@@ -835,17 +837,17 @@ def draw_totals_taxes_table(pdf):
     pdf.set_draw_color(255, 255, 255)
     pdf.serif(8)
     pdf.ln(2)
-    draw_blanks(pdf, widths)
+    draw_blanks(pdf, BILLABLE_WIDTHS)
 
     subtotal_text = pdf.config['currency_marker'] + ' ' + format_money(subtotal)
-    pdf.content_cell(widths[len(widths)-2], 4, "Subtotal")
-    pdf.content_cell(widths[len(widths)-1], 4, subtotal_text)
+    pdf.content_cell(BILLABLE_WIDTHS[len(BILLABLE_WIDTHS)-2], 4, "Subtotal")
+    pdf.content_cell(BILLABLE_WIDTHS[len(BILLABLE_WIDTHS)-1], 4, subtotal_text)
 
     tax = get_tax(pdf, subtotal)
-    draw_tax(pdf, tax, widths)
+    draw_tax(pdf, tax, BILLABLE_WIDTHS)
 
     total = subtotal + tax
-    draw_total(pdf, total, widths)
+    draw_total(pdf, total, BILLABLE_WIDTHS)
 
 
 def render_pdf(config):
