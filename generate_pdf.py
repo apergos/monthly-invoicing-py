@@ -607,17 +607,18 @@ def draw_work_table(pdf):
     draw_unframed_list(pdf, values, 0)
 
 
-def draw_filled_table(pdf, table_config, headers, content_keys, widths=None, align="R"):
+def draw_filled_table(pdf, table_content, table_info, widths=None, align="R"):
     '''
     draw a standard bordered table with headers centered and a different cell
     color than the content
 
     args:
       pfd: PDF object
-      table_config: list of dicts with content field names and content
-      headers: list of headers to go in the header row of the table
-      content_keys: list of keys from the content dicts, one key per header;
-              this is used so we know which content elements correspond
+      table_content: list of dicts with content field names and content
+      table_info: dict with two entries:
+          headers: list of headers to go in the header row of the table
+          content_keys: list of keys from the table_content dicts, one key per
+              header, so we know which elements in table content correspond
               to which headers and in which order
       widths: list of widths of the cells in a row; if not supplied, the
               width of the header field plus a multiplier will be used
@@ -633,7 +634,7 @@ def draw_filled_table(pdf, table_config, headers, content_keys, widths=None, ali
     pdf.set_y(base_y)
 
     # put the headers
-    for idx, header in enumerate(headers):
+    for idx, header in enumerate(table_info['headers']):
         if widths:
             width = widths[idx]
         else:
@@ -646,13 +647,13 @@ def draw_filled_table(pdf, table_config, headers, content_keys, widths=None, ali
     pdf.serif(8)
 
     # put the content
-    for row in table_config:
-        for idx, name in enumerate(content_keys):
+    for row in table_content:
+        for idx, name in enumerate(table_info['content_keys']):
             value = row[name]
             if widths:
                 width = widths[idx]
             else:
-                width = len(headers[idx]) * 4.9
+                width = len(table_info['headers'][idx]) * 4.9
             if align == "L":
                 pdf.content_cell_left(width, 4, value)
             else:
@@ -666,9 +667,10 @@ def draw_bill_table(pdf):
     and due date
     '''
     headers = ["Department", "Currency", "Payment Terms", "Due Date"]
-    table_config = [pdf.config['bill']]
     content_keys = ['department', 'currency', 'payment_terms', 'due_date']
-    draw_filled_table(pdf, table_config, headers, content_keys, align="L")
+    table_info = {'headers': headers, 'content_keys': content_keys}
+    table_content = [pdf.config['bill']]
+    draw_filled_table(pdf, table_content, table_info, align="L")
 
 
 def draw_blanks(pdf, widths):
@@ -731,10 +733,11 @@ def draw_billables_table(pdf):
     display the billable items
     '''
     headers = ["Week of:", "Hours/Week", "Rate", "Line Total"]
-    widths = [116.5, 25, 25, 25]
-    table_config = pdf.config['billables']
     content_keys = ["description", "hours", "rate", "cost"]
-    draw_filled_table(pdf, table_config, headers, content_keys, widths)
+    table_info = {'headers': headers, 'content_keys': content_keys}
+    widths = [116.5, 25, 25, 25]
+    table_content = pdf.config['billables']
+    draw_filled_table(pdf, table_content, table_info, widths)
 
 
 def draw_totals_taxes_table(pdf):
