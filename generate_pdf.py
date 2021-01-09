@@ -143,19 +143,21 @@ class PDF(FPDF):
         logo if any, biller name and address, invoice number and date,
         divider line to separate the header from the body of the invoice
         '''
-        self.set_font(self.config['app_config']['sans_font'], "BI", 28)
         # logo
         self.image(self.config['business']['image_file'], 0, 10, 100, 0, '', '')
 
         # Right side
         # "Invoice"
+        self.set_font(self.config['app_config']['sans_font'], "BI", 28)
         self.set_xy(140, 30)
         self.dark_text()
         self.cell(40, 0, "Invoice")
+
+        # Rest of right side
+        self.serif(12)
         # "Date"
         self.set_xy(140, 40)
         self.dark_text()
-        self.serif(12)
         self.cell(20, 0, "Date:")
         self.light_text()
         self.cell(20, 0, self.get_invoice_date())
@@ -167,10 +169,10 @@ class PDF(FPDF):
         self.cell(20, 0, self.get_invoice_number())
 
         # Left side
-        # Biller Name
-        self.set_xy(8, 40)
         self.dark_text()
+        # Biller Name
         self.bold_serif(14)
+        self.set_xy(8, 40)
         self.cell(40, 0, self.config['business']['person'])
         # Biller Address
         self.serif(10)
@@ -188,10 +190,13 @@ class PDF(FPDF):
         divider line to separate footer from body of the invoice,
         company name, date invoice generated
         '''
-        # divider line
+        # Divider line
         self.ln(10)
         self.dark_draw_color()
         self.line(8, 275, 200, 275)
+
+        # Text
+        self.bold_serif(10)
 
         # Left side
         # company name
@@ -260,6 +265,7 @@ def get_week_info(year, month, off):
     else:
         work_days = week_difference
     work_days = remove_off(work_days, week_start_date, week_end_date, off)
+
     while True:
         work_hours = work_days * 8
         week_info.append((week_start_date, week_end_date, work_days, work_hours))
@@ -531,10 +537,10 @@ def add_config_defaults(config):
 
 def convert_money(value):
     '''
-    skip leading non-digit if any
-
-    take a decimal string, convert it to the corresponding int
-    multiplied by 100, and return that
+    skip leading non-digits if any (might be currency marker and
+    following spaces), take the resultant decimal string,
+    convert it to the corresponding integer multiplied by 100,
+    and return that
 
     this lets us work with monetary values as ints; they can be
     formatted back to money for printing
@@ -611,6 +617,8 @@ def draw_filled_table(pdf, table_content, table_info, widths=None, align="R"):
     '''
     draw a standard bordered table with headers centered and a different cell
     color than the content
+
+    the table will be the width of the page (minus margins)
 
     args:
       pfd: PDF object
@@ -766,8 +774,17 @@ def draw_totals_taxes_table(pdf):
 
 
 def render_pdf(config):
-    '''actually render the pdf, heh'''
+    '''
+    given a yaml config with all information for them
+    invoice, draw all the tables and other entries and
+    write out the pdf
+    '''
+
+    # default: A4, portrait, all units are in milimeters except for
+    # font sizes, which are in points
     pdf = PDF(config)
+    # one page invoice, we hope. this will automatically write the
+    # header and footer as well.
     pdf.add_page()
 
     # entity being billed
