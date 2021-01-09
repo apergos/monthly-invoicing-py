@@ -187,29 +187,31 @@ class PDF(FPDF):
 
         # Rest of right side
         self.serif(10)
+        right_width = 20
         # "Date"
         self.set_xy(right_x, 40)
         self.dark_text()
-        self.cell(20, 0, "Date:")
+        self.cell(right_width, 0, "Date:")
         self.light_text()
         self.cell(20, 0, self.get_invoice_date())
         # "Invoice Number"
         self.set_xy(right_x, 45)
         self.dark_text()
-        self.cell(20, 0, "Invoice #:")
+        self.cell(right_width, 0, "Invoice #:")
         self.light_text()
-        self.cell(20, 0, self.get_invoice_number())
+        self.cell(right_width, 0, self.get_invoice_number())
 
         # Left side
         self.dark_text()
+        left_width = 40
         # Biller Name
         self.bold_serif(14)
         self.set_xy(self.left_margin, 40)
-        self.cell(40, 0, self.config['business']['person'])
+        self.cell(left_width, 0, self.config['business']['person'])
         # Biller Address
         self.serif(9)
         self.set_xy(self.left_margin, 45)
-        self.cell(40, 0, self.config['business']['address'])
+        self.cell(left_width, 0, self.config['business']['address'])
 
         # Divider line
         self.ln(10)
@@ -840,8 +842,10 @@ def draw_totals_taxes_table(pdf):
     draw_blanks(pdf, BILLABLE_WIDTHS)
 
     subtotal_text = pdf.config['currency_marker'] + ' ' + format_money(subtotal)
-    pdf.content_cell(BILLABLE_WIDTHS[len(BILLABLE_WIDTHS)-2], int(pdf.font_size_pt / 2), "Subtotal")
-    pdf.content_cell(BILLABLE_WIDTHS[len(BILLABLE_WIDTHS)-1], int(pdf.font_size_pt / 2), subtotal_text)
+    pdf.content_cell(BILLABLE_WIDTHS[len(BILLABLE_WIDTHS)-2],
+                     int(pdf.font_size_pt / 2), "Subtotal")
+    pdf.content_cell(BILLABLE_WIDTHS[len(BILLABLE_WIDTHS)-1],
+                     int(pdf.font_size_pt / 2), subtotal_text)
 
     tax = get_tax(pdf, subtotal)
     draw_tax(pdf, tax, BILLABLE_WIDTHS)
