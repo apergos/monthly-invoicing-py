@@ -13,9 +13,6 @@ import yaml
 from fpdf import FPDF
 
 
-BILLABLE_WIDTHS = [116.5, 25, 25, 25]
-
-
 class PDF(FPDF):
     '''
     subclass with invoice header, footer
@@ -30,6 +27,8 @@ class PDF(FPDF):
         self.add_fonts_from_config()
         self.left_margin = 8
         self.divider_length = 200
+        # A4 paper size. This must be adjusted if caller doesn't use A4.
+        self.page_width = 210 - 16
 
     def add_fonts_from_config(self):
         '''
@@ -691,7 +690,43 @@ def draw_work_table(pdf):
     draw_unframed_list(pdf, "Work Details", values, 0, False)
 
 
-def draw_filled_table(pdf, table_content, table_info, widths=None, align="R"):
+def set_table_header_colors_font(pdf):
+    '''
+    set font and colors used for bordered table headers
+    '''
+    pdf.white_text()
+    pdf.set_draw_color(64, 64, 64)
+    pdf.light_fill_color()
+    pdf.set_line_width(0.3)
+    pdf.bold_serif(10)
+
+
+def set_table_content_colors_font(pdf):
+    '''
+    set font and colors used for bordered table content
+    '''
+    pdf.black_text()
+    pdf.set_draw_color(64, 64, 64)
+    pdf.set_fill_color(255, 255, 255)
+    pdf.set_line_width(0.3)
+    pdf.serif(8)
+
+
+def get_widths(pdf, headers):
+    '''
+    given a bunch of headers for a bordered table that will fill
+    the whole page, get and return the cell widths for the table
+    '''
+    set_table_header_colors_font(pdf)
+    string_widths = [pdf.get_string_width(header) for header in headers]
+    spare_per_header = (pdf.page_width - sum(string_widths)) / len(headers)
+    header_widths = []
+    for idx, _ in enumerate(headers):
+        header_widths.append(string_widths[idx] + spare_per_header)
+    return header_widths
+
+
+def draw_filled_table(pdf, table_content, table_info, align="R"):
     '''
     draw a standard bordered table with headers centered and a different cell
     color than the content
@@ -706,45 +741,33 @@ def draw_filled_table(pdf, table_content, table_info, widths=None, align="R"):
           content_keys: list of keys from the table_content dicts, one key per
               header, so we know which elements in table content correspond
               to which headers and in which order
-      widths: list of widths of the cells in a row; if not supplied, the
-              width of the header field plus a multiplier will be used
       align: right align the text (default) or some other alignment (e.g. "L")
     '''
-    pdf.white_text()
-    pdf.set_draw_color(64, 64, 64)
-    pdf.light_fill_color()
-    pdf.set_line_width(0.3)
-    pdf.bold_serif(10)
+    set_table_header_colors_font(pdf)
 
     base_y = pdf.get_y() + 10
     pdf.set_y(base_y)
 
+    # get column widths
+    widths = get_widths(pdf, table_info['headers'])
+
     # put the headers
     for idx, header in enumerate(table_info['headers']):
-        if widths:
-            width = widths[idx]
-        else:
-            width = len(header) * 4.9
-        pdf.header_cell(width, int(pdf.font_size_pt / 2), header)
+        pdf.header_cell(widths[idx], int(pdf.font_size_pt / 2), header)
 
     pdf.ln(5)
-    pdf.set_fill_color(255, 255, 255)
-    pdf.black_text()
-    pdf.serif(8)
+    set_table_content_colors_font(pdf)
 
     # put the content
     for row in table_content:
         for idx, name in enumerate(table_info['content_keys']):
             value = row[name]
-            if widths:
-                width = widths[idx]
-            else:
-                width = len(table_info['headers'][idx]) * 4.9
             if align == "L":
-                pdf.content_cell_left(width, int(pdf.font_size_pt / 2), value)
+                pdf.content_cell_left(widths[idx], int(pdf.font_size_pt / 2), value)
             else:
-                pdf.content_cell(width, int(pdf.font_size_pt / 2), value)
+                pdf.content_cell(widths[idx], int(pdf.font_size_pt / 2), value)
         pdf.ln(4)
+    return widths
 
 
 def draw_bill_table(pdf):
@@ -825,10 +848,10 @@ def draw_billables_table(pdf):
     content_keys = ["description", "hours", "rate", "cost"]
     table_info = {'headers': headers, 'content_keys': content_keys}
     table_content = pdf.config['billables']
-    draw_filled_table(pdf, table_content, table_info, BILLABLE_WIDTHS)
+    return draw_filled_table(pdf, table_content, table_info, None)
 
 
-def draw_totals_taxes_table(pdf):
+def draw_totals_taxes_table(pdf, widths):
     '''
     display the subtotal, the tax, and the final total
     '''
@@ -839,19 +862,19 @@ def draw_totals_taxes_table(pdf):
     pdf.set_draw_color(255, 255, 255)
     pdf.serif(8)
     pdf.ln(2)
-    draw_blanks(pdf, BILLABLE_WIDTHS)
+    draw_blanks(pdf, widths)
 
     subtotal_text = pdf.config['currency_marker'] + ' ' + format_money(subtotal)
-    pdf.content_cell(BILLABLE_WIDTHS[len(BILLABLE_WIDTHS)-2],
+    pdf.content_cell(widths[len(widths)-2],
                      int(pdf.font_size_pt / 2), "Subtotal")
-    pdf.content_cell(BILLABLE_WIDTHS[len(BILLABLE_WIDTHS)-1],
+    pdf.content_cell(widths[len(widths)-1],
                      int(pdf.font_size_pt / 2), subtotal_text)
 
     tax = get_tax(pdf, subtotal)
-    draw_tax(pdf, tax, BILLABLE_WIDTHS)
+    draw_tax(pdf, tax, widths)
 
     total = subtotal + tax
-    draw_total(pdf, total, BILLABLE_WIDTHS)
+    draw_total(pdf, total, widths)
 
 
 def render_pdf(config):
@@ -877,8 +900,9 @@ def render_pdf(config):
     # itemized work done
     draw_work_table(pdf)
 
-    draw_billables_table(pdf)
-    draw_totals_taxes_table(pdf)
+    widths = draw_billables_table(pdf)
+    # this table's position depends on the previous one. yuck
+    draw_totals_taxes_table(pdf, widths)
 
     outfile_name = os.path.join(
         pdf.config['app_config']['output_dir'],
