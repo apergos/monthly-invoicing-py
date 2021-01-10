@@ -670,7 +670,7 @@ class InvoiceDraw():
 
         # write the currency marker plus total
         total_text = self.pdf.config['currency_marker'] + ' ' + InvoiceUtils.format_money(total)
-        self.pdf.content_cell(widths[0], int(self.pdf.font_size_pt / 2), "Total")
+        self.pdf.content_cell(widths[0], int(self.pdf.font_size_pt / 2), self.get_total_name())
         self.pdf.content_cell(widths[1], int(self.pdf.font_size_pt / 2), total_text)
 
         # place a dividing line just above the total entry
@@ -688,18 +688,25 @@ class InvoiceDraw():
         table_content = self.pdf.config['billables']
         self.draw_filled_table(table_content, table_info, None)
 
+    @staticmethod
+    def get_total_name():
+        '''
+        define this here because it's used in more than one place.
+        maybe all the strings ought to be defined in a class constant
+        '''
+        return "Total"
+
     def get_totals_taxes_widths(self):
         '''
         calculate and return the widths of the two columns in the
         subtotal/taxes/total table. these will be fixed based on them
-        font size and the text. yeah now we have "Total" defined as
-        the string in two places, ugh.
+        font size and the text.
         '''
         self.set_total_colors_font()
         # make more than this in a week? get yer own invoice generator!
-        total_name = "Total"
         max_total_text = self.pdf.config['currency_marker'] + ' ' + "999999.99"
-        widths = [self.pdf.get_string_width(total_name), self.pdf.get_string_width(max_total_text)]
+        widths = [self.pdf.get_string_width(self.get_total_name()),
+                  self.pdf.get_string_width(max_total_text)]
         # add a little padding
         widths = [width + 2 for width in widths]
         return widths
