@@ -25,7 +25,7 @@ class PDF(FPDF):
         self.add_font('DejaVu', '', '/usr/share/fonts/dejavu/DejaVuSerif.ttf', uni=True)
         self.add_font('DejaVu', 'B', '/usr/share/fonts/dejavu/DejaVuSerif-Bold.ttf', uni=True)
         self.add_fonts_from_config()
-        self.left_margin = 8
+        self.margin = 8
         self.divider_length = 200
         # A4 paper size. This must be adjusted if caller doesn't use A4.
         self.page_width = 210 - 16
@@ -205,17 +205,17 @@ class PDF(FPDF):
         left_width = 40
         # Biller Name
         self.bold_serif(14)
-        self.set_xy(self.left_margin, 40)
+        self.set_xy(self.margin, 40)
         self.cell(left_width, 0, self.config['business']['person'])
         # Biller Address
         self.serif(9)
-        self.set_xy(self.left_margin, 45)
+        self.set_xy(self.margin, 45)
         self.cell(left_width, 0, self.config['business']['address'])
 
         # Divider line
         self.ln(10)
         self.dark_draw_color()
-        self.line(self.left_margin, 50, self.divider_length, 50)
+        self.line(self.margin, 50, self.divider_length, 50)
 
     def footer(self):
         '''
@@ -226,14 +226,14 @@ class PDF(FPDF):
         # Divider line
         self.ln(10)
         self.dark_draw_color()
-        self.line(self.left_margin, 275, self.divider_length, 275)
+        self.line(self.margin, 275, self.divider_length, 275)
 
         # Text
         self.bold_serif(10)
 
         # Left side
         # company name
-        self.set_xy(self.left_margin, 280)
+        self.set_xy(self.margin, 280)
         self.dark_text()
         self.cell(127, 0, self.config['business']['name'])
 
@@ -617,7 +617,7 @@ def draw_unframed_list(pdf, header, values, left_cols, rect=False):
     draw multiple such columns with multiple calls to this method,
     drawing a final rectangle around them all
     '''
-    xpos = pdf.left_margin + 2
+    xpos = pdf.margin + 2
     ypos = None
 
     # header if any
@@ -767,7 +767,6 @@ def draw_filled_table(pdf, table_content, table_info, align="R"):
             else:
                 pdf.content_cell(widths[idx], int(pdf.font_size_pt / 2), value)
         pdf.ln(4)
-    return widths
 
 
 def draw_bill_table(pdf):
@@ -802,10 +801,33 @@ def get_tax(pdf, subtotal):
     return tax
 
 
-def draw_tax(pdf, tax, widths):
+def get_subtotal(pdf):
+    '''compute and return the subtotal'''
+    subtotal = 0
+    for billable in pdf.config['billables']:
+        subtotal = subtotal + convert_money(billable['cost'])
+    return subtotal
+
+
+def draw_subtotal(pdf, subtotal, widths, xpos):
+    '''display the subtotal line'''
+    # display accumulated subtotal
+    pdf.ln(2)
+    pdf.set_draw_color(255, 255, 255)
+    pdf.serif(8)
+    pdf.set_x(xpos)
+
+    subtotal_text = pdf.config['currency_marker'] + ' ' + format_money(subtotal)
+    pdf.content_cell(widths[0], int(pdf.font_size_pt / 2), "Subtotal")
+    pdf.content_cell(widths[1], int(pdf.font_size_pt / 2), subtotal_text)
+
+
+def draw_tax(pdf, tax, widths, xpos):
     '''display tax (or whatever it might be called in the config)'''
     pdf.ln(4)
-    draw_blanks(pdf, widths)
+    pdf.set_draw_color(255, 255, 255)
+    pdf.serif(8)
+    pdf.set_x(xpos)
 
     tax_name = "Tax"
     if ('tax_details' in pdf.config and 'tax_name' in pdf.config['tax_details'] and
@@ -814,30 +836,35 @@ def draw_tax(pdf, tax, widths):
 
     tax_text = pdf.config['currency_marker'] + " " + format_money(tax)
 
-    pdf.content_cell(widths[len(widths)-2], int(pdf.font_size_pt / 2), tax_name)
-    pdf.content_cell(widths[len(widths)-1], int(pdf.font_size_pt / 2), tax_text)
+    pdf.content_cell(widths[0], int(pdf.font_size_pt / 2), tax_name)
+    pdf.content_cell(widths[1], int(pdf.font_size_pt / 2), tax_text)
 
 
-def draw_total(pdf, total, widths):
+def set_total_colors_font(pdf):
+    '''set colors and font for the Totals line'''
+    pdf.set_draw_color(255, 255, 255)
+    pdf.bold_serif(10)
+
+
+def draw_total(pdf, total, widths, xpos):
     '''
     write the total, with the proper currency marker
     '''
+    set_total_colors_font(pdf)
     pdf.ln(4)
-    draw_blanks(pdf, widths)
+    pdf.set_x(xpos)
 
-    pdf.bold_serif(10)
     y_pos = pdf.get_y()
-    x_line_start = pdf.get_x()
 
     # write the currency marker plus total
     total_text = pdf.config['currency_marker'] + ' ' + format_money(total)
-    pdf.content_cell(widths[len(widths)-2], int(pdf.font_size_pt / 2), "Total")
-    pdf.content_cell(widths[len(widths)-1], int(pdf.font_size_pt / 2), total_text)
+    pdf.content_cell(widths[0], int(pdf.font_size_pt / 2), "Total")
+    pdf.content_cell(widths[1], int(pdf.font_size_pt / 2), total_text)
 
     # place a dividing line just above the total entry
     x_line_end = pdf.get_x()
     pdf.set_draw_color(64, 64, 64)
-    pdf.line(x_line_start, y_pos, x_line_end, y_pos)
+    pdf.line(xpos, y_pos, x_line_end, y_pos)
 
 
 def draw_billables_table(pdf):
@@ -848,33 +875,42 @@ def draw_billables_table(pdf):
     content_keys = ["description", "hours", "rate", "cost"]
     table_info = {'headers': headers, 'content_keys': content_keys}
     table_content = pdf.config['billables']
-    return draw_filled_table(pdf, table_content, table_info, None)
+    draw_filled_table(pdf, table_content, table_info, None)
 
 
-def draw_totals_taxes_table(pdf, widths):
+def get_totals_taxes_widths(pdf):
+    '''
+    calculate and return the widths of the two columns in the
+    subtotal/taxes/total table. these will be fixed based on them
+    font size and the text. yeah now we have "Total" defined as
+    the string in two places, ugh.
+    '''
+    set_total_colors_font(pdf)
+    # make more than this in a week? get yer own invoice generator!
+    total_name = "Total"
+    max_total_text = pdf.config['currency_marker'] + ' ' + "999999.99"
+    widths = [pdf.get_string_width(total_name), pdf.get_string_width(max_total_text)]
+    # add a little padding
+    widths = [width + 2 for width in widths]
+    return widths
+
+
+def draw_totals_taxes_table(pdf):
     '''
     display the subtotal, the tax, and the final total
     '''
-    subtotal = 0
-    for billable in pdf.config['billables']:
-        subtotal = subtotal + convert_money(billable['cost'])
-    # display accumulated subtotal
-    pdf.set_draw_color(255, 255, 255)
-    pdf.serif(8)
-    pdf.ln(2)
-    draw_blanks(pdf, widths)
+    widths = get_totals_taxes_widths(pdf)
+    # must add in the left margin to properly place x
+    xpos = pdf.page_width - sum(widths) + pdf.margin + 2
 
-    subtotal_text = pdf.config['currency_marker'] + ' ' + format_money(subtotal)
-    pdf.content_cell(widths[len(widths)-2],
-                     int(pdf.font_size_pt / 2), "Subtotal")
-    pdf.content_cell(widths[len(widths)-1],
-                     int(pdf.font_size_pt / 2), subtotal_text)
+    subtotal = get_subtotal(pdf)
+    draw_subtotal(pdf, subtotal, widths, xpos)
 
     tax = get_tax(pdf, subtotal)
-    draw_tax(pdf, tax, widths)
+    draw_tax(pdf, tax, widths, xpos)
 
     total = subtotal + tax
-    draw_total(pdf, total, widths)
+    draw_total(pdf, total, widths, xpos)
 
 
 def render_pdf(config):
@@ -900,9 +936,8 @@ def render_pdf(config):
     # itemized work done
     draw_work_table(pdf)
 
-    widths = draw_billables_table(pdf)
-    # this table's position depends on the previous one. yuck
-    draw_totals_taxes_table(pdf, widths)
+    draw_billables_table(pdf)
+    draw_totals_taxes_table(pdf)
 
     outfile_name = os.path.join(
         pdf.config['app_config']['output_dir'],
