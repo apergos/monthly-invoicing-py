@@ -26,7 +26,6 @@ class PDF(FPDF):
         self.add_font('DejaVu', 'B', '/usr/share/fonts/dejavu/DejaVuSerif-Bold.ttf', uni=True)
         self.add_fonts_from_config()
         self.margin = 8
-        self.divider_length = 200
         # A4 paper size. This must be adjusted if caller doesn't use A4.
         self.page_width = 210 - 16
 
@@ -167,6 +166,12 @@ class PDF(FPDF):
         last_day = int(last_day)
         return "{name}{day}{year}".format(name=month_name[0:3], day=last_day, year=year)
 
+    def draw_divider(self, ypos):
+        '''draw a dividing line across the page 10 line breaks below our current pos'''
+        self.ln(10)
+        self.dark_draw_color()
+        self.line(self.margin, ypos, self.page_width + self.margin, ypos)
+
     def header(self):
         '''
         Display at top of the invoice:
@@ -212,10 +217,7 @@ class PDF(FPDF):
         self.set_xy(self.margin, 45)
         self.cell(left_width, 0, self.config['business']['address'])
 
-        # Divider line
-        self.ln(10)
-        self.dark_draw_color()
-        self.line(self.margin, 50, self.divider_length, 50)
+        self.draw_divider(50)
 
     def footer(self):
         '''
@@ -223,10 +225,7 @@ class PDF(FPDF):
         divider line to separate footer from body of the invoice,
         company name, date invoice generated
         '''
-        # Divider line
-        self.ln(10)
-        self.dark_draw_color()
-        self.line(self.margin, 275, self.divider_length, 275)
+        self.draw_divider(275)
 
         # Text
         self.bold_serif(10)
@@ -235,12 +234,16 @@ class PDF(FPDF):
         # company name
         self.set_xy(self.margin, 280)
         self.dark_text()
-        self.cell(127, 0, self.config['business']['name'])
+        company_text = self.config['business']['name']
+        self.cell(self.get_string_width(company_text), 0, company_text)
 
         # Right side
         # invoice generation date
         self.light_text()
-        self.cell(40, 0, "Generated: " + time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime()))
+        time_text = "Generated: " + time.strftime("%Y-%m-%d %H:%M:%S UTC", time.gmtime())
+        # add in left margin for correct placement
+        self.set_x(self.page_width - self.get_string_width(time_text) + self.margin)
+        self.cell(self.get_string_width(time_text), 0, time_text)
 
 
 class InvoiceUtils():
