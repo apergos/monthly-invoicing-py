@@ -13,6 +13,19 @@ import yaml
 from fpdf import FPDF
 
 
+FIELDS = {
+    'header': {'invoice': 'Invoice', 'date': 'Date:', 'invoice_num': 'Invoice #:'},
+    'billto': {'to': 'To;'},
+    'bill': {'dept': 'Department', 'currency': 'Currency',
+             'terms': 'Payment Terms', 'due': 'Due Date'},
+    'work': {'details': 'Work Details'},
+    'billables': {'week': 'Dates', 'hours': 'Hours/Week',
+                  'rate': 'Rate', 'total': 'Line Total'},
+    'totals': {'subtotal': 'Subtotal', 'tax': 'Tax', 'total': 'Total'},
+    'footer': {'generated': 'Generated:'}
+    }
+
+
 class PDF(FPDF):
     '''
     subclass with invoice header, footer
@@ -187,7 +200,7 @@ class PDF(FPDF):
         self.set_font(self.config['app_config']['sans_font'], "BI", 28)
         self.set_xy(right_x, 30)
         self.dark_text()
-        self.cell(40, 0, "Invoice")
+        self.cell(40, 0, FIELDS['header']['invoice'])
 
         # Rest of right side
         self.serif(10)
@@ -195,13 +208,13 @@ class PDF(FPDF):
         # "Date"
         self.set_xy(right_x, 40)
         self.dark_text()
-        self.cell(right_width, 0, "Date:")
+        self.cell(right_width, 0, FIELDS['header']['date'])
         self.light_text()
         self.cell(20, 0, self.get_invoice_date())
         # "Invoice Number"
         self.set_xy(right_x, 45)
         self.dark_text()
-        self.cell(right_width, 0, "Invoice #:")
+        self.cell(right_width, 0, FIELDS['header']['invoice_num'])
         self.light_text()
         self.cell(right_width, 0, self.get_invoice_number())
 
@@ -240,7 +253,8 @@ class PDF(FPDF):
         # Right side
         # invoice generation date
         self.light_text()
-        time_text = "Generated: " + time.strftime("%Y-%m-%d %H:%M:%S UTC", time.gmtime())
+        time_text = FIELDS['footer']['generated'] + ' '  + time.strftime(
+            "%Y-%m-%d %H:%M:%S UTC", time.gmtime())
         # add in left margin for correct placement
         self.set_x(self.page_width - self.get_string_width(time_text) + self.margin)
         self.cell(self.get_string_width(time_text), 0, time_text)
@@ -592,7 +606,8 @@ class InvoiceDraw():
         display two line table with department, currency, terms
         and due date
         '''
-        headers = ["Department", "Currency", "Payment Terms", "Due Date"]
+        headers = [FIELDS['bill']['dept'], FIELDS['bill']['currency'],
+                   FIELDS['bill']['terms'], FIELDS['bill']['due']]
         content_keys = ['department', 'currency', 'payment_terms', 'due_date']
         table_info = {'headers': headers, 'content_keys': content_keys}
         table_content = [self.pdf.config['bill']]
@@ -633,7 +648,8 @@ class InvoiceDraw():
 
         subtotal_text = (self.pdf.config['currency_marker'] + ' ' +
                          InvoiceUtils.format_money(subtotal))
-        self.pdf.content_cell(widths[0], int(self.pdf.font_size_pt / 2), "Subtotal")
+        self.pdf.content_cell(widths[0], int(self.pdf.font_size_pt / 2),
+                              FIELDS['totals']['subtotal'])
         self.pdf.content_cell(widths[1], int(self.pdf.font_size_pt / 2), subtotal_text)
 
     def draw_tax(self, tax, widths, xpos):
@@ -643,7 +659,7 @@ class InvoiceDraw():
         self.pdf.serif(8)
         self.pdf.set_x(xpos)
 
-        tax_name = "Tax"
+        tax_name = FIELDS['totals']['tax']
         if ('tax_details' in self.pdf.config and 'tax_name' in self.pdf.config['tax_details'] and
                 self.pdf.config['tax_details']['tax_name']):
             tax_name = self.pdf.config['tax_details']['tax_name']
@@ -670,7 +686,7 @@ class InvoiceDraw():
 
         # write the currency marker plus total
         total_text = self.pdf.config['currency_marker'] + ' ' + InvoiceUtils.format_money(total)
-        self.pdf.content_cell(widths[0], int(self.pdf.font_size_pt / 2), self.get_total_name())
+        self.pdf.content_cell(widths[0], int(self.pdf.font_size_pt / 2), FIELDS['totals']['total'])
         self.pdf.content_cell(widths[1], int(self.pdf.font_size_pt / 2), total_text)
 
         # place a dividing line just above the total entry
@@ -682,19 +698,12 @@ class InvoiceDraw():
         '''
         display the billable items
         '''
-        headers = ["Week of:", "Hours/Week", "Rate", "Line Total"]
+        headers = [FIELDS['billables']['week'], FIELDS['billables']['hours'],
+                   FIELDS['billables']['rate'], FIELDS['billables']['total']]
         content_keys = ["description", "hours", "rate", "cost"]
         table_info = {'headers': headers, 'content_keys': content_keys}
         table_content = self.pdf.config['billables']
         self.draw_filled_table(table_content, table_info, None)
-
-    @staticmethod
-    def get_total_name():
-        '''
-        define this here because it's used in more than one place.
-        maybe all the strings ought to be defined in a class constant
-        '''
-        return "Total"
 
     def get_totals_taxes_widths(self):
         '''
@@ -705,7 +714,7 @@ class InvoiceDraw():
         self.set_total_colors_font()
         # make more than this in a week? get yer own invoice generator!
         max_total_text = self.pdf.config['currency_marker'] + ' ' + "999999.99"
-        widths = [self.pdf.get_string_width(self.get_total_name()),
+        widths = [self.pdf.get_string_width(FIELDS['totals']['total']),
                   self.pdf.get_string_width(max_total_text)]
         # add a little padding
         widths = [width + 2 for width in widths]
