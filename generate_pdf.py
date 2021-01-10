@@ -20,7 +20,7 @@ FIELDS = {
              'terms': 'Payment Terms', 'due': 'Due Date'},
     'work': {'details': 'Work Details'},
     'billables': {'week': 'Dates', 'hours': 'Hours/Week',
-                  'rate': 'Rate', 'total': 'Line Total'},
+                  'rate': 'Rate', 'total': 'Line Total', 'week_of': 'Week of'},
     'totals': {'subtotal': 'Subtotal', 'tax': 'Tax', 'total': 'Total'},
     'footer': {'generated': 'Generated:'}
     }
@@ -326,8 +326,9 @@ class InvoiceUtils():
         put together a basic billable item and return it
         '''
         billable = {}
-        billable['description'] = 'Week of {month} {start} - {end}'.format(
-            month=calendar.month_name[month], start=week_info[0], end=week_info[1])
+        billable['description'] = (
+            FIELDS['billables']['week_of'] + ' {month} {start} - {end}'.format(
+                month=calendar.month_name[month], start=week_info[0], end=week_info[1]))
         billable['rate'] = str(rate)
         billable['hours'] = str(week_info[3])
         # printable format for the rate
