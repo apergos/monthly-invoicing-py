@@ -1,8 +1,8 @@
 "YYYY-MM-DD":
   off_days: []
-  rate: "42.25"
+  rate: "xx.yy"
   work_done:
-    - work: ""
-    - work: ""
-    - work: ""
-    - work: ""
+    - work: "• "
+    - work: "• "
+    - work: "• "
+    - work: "• "

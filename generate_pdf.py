@@ -22,6 +22,8 @@ class PDF(FPDF):
     def __init__(self, config):
         self.config = config
         super().__init__()
+        self.add_font('DejaVu', '', '/usr/share/fonts/dejavu/DejaVuSerif.ttf', uni=True)
+        self.add_font('DejaVu', 'B', '/usr/share/fonts/dejavu/DejaVuSerif-Bold.ttf', uni=True)
 
     def dark_text(self):
         '''
@@ -143,44 +145,48 @@ class PDF(FPDF):
         logo if any, biller name and address, invoice number and date,
         divider line to separate the header from the body of the invoice
         '''
-        self.set_font(self.config['app_config']['sans_font'], "BI", 28)
         # logo
         self.image(self.config['business']['image_file'], 0, 10, 100, 0, '', '')
 
         # Right side
         # "Invoice"
-        self.set_xy(140, 30)
+        right_x = 140
+        self.set_font(self.config['app_config']['sans_font'], "BI", 28)
+        self.set_xy(right_x, 30)
         self.dark_text()
         self.cell(40, 0, "Invoice")
+
+        # Rest of right side
+        self.serif(10)
         # "Date"
-        self.set_xy(140, 40)
+        self.set_xy(right_x, 40)
         self.dark_text()
-        self.serif(12)
         self.cell(20, 0, "Date:")
         self.light_text()
         self.cell(20, 0, self.get_invoice_date())
         # "Invoice Number"
-        self.set_xy(140, 45)
+        self.set_xy(right_x, 45)
         self.dark_text()
         self.cell(20, 0, "Invoice #:")
         self.light_text()
         self.cell(20, 0, self.get_invoice_number())
 
         # Left side
-        # Biller Name
-        self.set_xy(8, 40)
         self.dark_text()
+        left_x = 8
+        # Biller Name
         self.bold_serif(14)
+        self.set_xy(left_x, 40)
         self.cell(40, 0, self.config['business']['person'])
         # Biller Address
-        self.serif(10)
-        self.set_xy(8, 45)
+        self.serif(9)
+        self.set_xy(left_x, 45)
         self.cell(40, 0, self.config['business']['address'])
 
         # Divider line
         self.ln(10)
         self.dark_draw_color()
-        self.line(8, 50, 200, 50)
+        self.line(left_x, 50, 200, 50)
 
     def footer(self):
         '''
@@ -188,16 +194,19 @@ class PDF(FPDF):
         divider line to separate footer from body of the invoice,
         company name, date invoice generated
         '''
-        # divider line
+        # Divider line
         self.ln(10)
         self.dark_draw_color()
         self.line(8, 275, 200, 275)
+
+        # Text
+        self.bold_serif(10)
 
         # Left side
         # company name
         self.set_xy(8.0, 280)
         self.dark_text()
-        self.cell(143, 0, self.config['business']['name'])
+        self.cell(127, 0, self.config['business']['name'])
 
         # Right side
         # invoice generation date
@@ -260,6 +269,7 @@ def get_week_info(year, month, off):
     else:
         work_days = week_difference
     work_days = remove_off(work_days, week_start_date, week_end_date, off)
+
     while True:
         work_hours = work_days * 8
         week_info.append((week_start_date, week_end_date, work_days, work_hours))
@@ -517,7 +527,8 @@ def add_config_defaults(config):
     if 'sans_font' not in config['app_config']:
         config['app_config']['sans_font'] = "Helvetica"
     if 'serif_font' not in config['app_config']:
-        config['app_config']['serif_font'] = "Times"
+        # config['app_config']['serif_font'] = "Times"
+        config['app_config']['serif_font'] = "DejaVu"
 
     if 'colors' not in config:
         config['colors'] = {}
@@ -531,10 +542,10 @@ def add_config_defaults(config):
 
 def convert_money(value):
     '''
-    skip leading non-digit if any
-
-    take a decimal string, convert it to the corresponding int
-    multiplied by 100, and return that
+    skip leading non-digits if any (might be currency marker and
+    following spaces), take the resultant decimal string,
+    convert it to the corresponding integer multiplied by 100,
+    and return that
 
     this lets us work with monetary values as ints; they can be
     formatted back to money for printing
@@ -607,17 +618,20 @@ def draw_work_table(pdf):
     draw_unframed_list(pdf, values, 0)
 
 
-def draw_filled_table(pdf, table_config, headers, content_keys, widths=None, align="R"):
+def draw_filled_table(pdf, table_content, table_info, widths=None, align="R"):
     '''
     draw a standard bordered table with headers centered and a different cell
     color than the content
 
+    the table will be the width of the page (minus margins)
+
     args:
       pfd: PDF object
-      table_config: list of dicts with content field names and content
-      headers: list of headers to go in the header row of the table
-      content_keys: list of keys from the content dicts, one key per header;
-              this is used so we know which content elements correspond
+      table_content: list of dicts with content field names and content
+      table_info: dict with two entries:
+          headers: list of headers to go in the header row of the table
+          content_keys: list of keys from the table_content dicts, one key per
+              header, so we know which elements in table content correspond
               to which headers and in which order
       widths: list of widths of the cells in a row; if not supplied, the
               width of the header field plus a multiplier will be used
@@ -633,7 +647,7 @@ def draw_filled_table(pdf, table_config, headers, content_keys, widths=None, ali
     pdf.set_y(base_y)
 
     # put the headers
-    for idx, header in enumerate(headers):
+    for idx, header in enumerate(table_info['headers']):
         if widths:
             width = widths[idx]
         else:
@@ -646,13 +660,13 @@ def draw_filled_table(pdf, table_config, headers, content_keys, widths=None, ali
     pdf.serif(8)
 
     # put the content
-    for row in table_config:
-        for idx, name in enumerate(content_keys):
+    for row in table_content:
+        for idx, name in enumerate(table_info['content_keys']):
             value = row[name]
             if widths:
                 width = widths[idx]
             else:
-                width = len(headers[idx]) * 4.9
+                width = len(table_info['headers'][idx]) * 4.9
             if align == "L":
                 pdf.content_cell_left(width, 4, value)
             else:
@@ -666,9 +680,10 @@ def draw_bill_table(pdf):
     and due date
     '''
     headers = ["Department", "Currency", "Payment Terms", "Due Date"]
-    table_config = [pdf.config['bill']]
     content_keys = ['department', 'currency', 'payment_terms', 'due_date']
-    draw_filled_table(pdf, table_config, headers, content_keys, align="L")
+    table_info = {'headers': headers, 'content_keys': content_keys}
+    table_content = [pdf.config['bill']]
+    draw_filled_table(pdf, table_content, table_info, align="L")
 
 
 def draw_blanks(pdf, widths):
@@ -731,10 +746,11 @@ def draw_billables_table(pdf):
     display the billable items
     '''
     headers = ["Week of:", "Hours/Week", "Rate", "Line Total"]
-    widths = [116.5, 25, 25, 25]
-    table_config = pdf.config['billables']
     content_keys = ["description", "hours", "rate", "cost"]
-    draw_filled_table(pdf, table_config, headers, content_keys, widths)
+    table_info = {'headers': headers, 'content_keys': content_keys}
+    widths = [116.5, 25, 25, 25]
+    table_content = pdf.config['billables']
+    draw_filled_table(pdf, table_content, table_info, widths)
 
 
 def draw_totals_taxes_table(pdf):
@@ -763,8 +779,17 @@ def draw_totals_taxes_table(pdf):
 
 
 def render_pdf(config):
-    '''actually render the pdf, heh'''
+    '''
+    given a yaml config with all information for them
+    invoice, draw all the tables and other entries and
+    write out the pdf
+    '''
+
+    # default: A4, portrait, all units are in milimeters except for
+    # font sizes, which are in points
     pdf = PDF(config)
+    # one page invoice, we hope. this will automatically write the
+    # header and footer as well.
     pdf.add_page()
 
     # entity being billed
